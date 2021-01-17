@@ -1,47 +1,116 @@
 extern crate clap;
-use clap::{App, Arg, ArgMatches, Shell};
+use clap::{App, Arg, ErrorKind, Shell, SubCommand};
 use serde_json::Value;
-use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
-
-const CONFIG_PATH: &str = "/Users/zhaolei/Codespaces/Code/workon-rs/src";
-const CONFIG_FILE: &str = "/Users/zhaolei/Codespaces/Code/workon-rs/src/conf";
+use std::{env, fs, io};
+use workon_rs::init;
 
 #[allow(unused)]
-enum ErrorCode {
-    CreateFileError = 1,
-    OpenFileError,
-    WriteFileError,
-    ReadFileError,
-    NotFoundFileError,
-    NotFoundConfigError,
-    ParseConfigError,
-    SetConfigError,
+const RETURN_OK: i32 = 0;
+const RETURN_ERROR: i32 = 1;
+
+fn main() {
+    let app = init_app();
+    dispatch(app.clone());
+}
+
+fn init_app() -> App<'static, 'static> {
+    let shell_arg = Arg::with_name("shell")
+        .value_name("SHELL")
+        .help("当前运行的shell，支持: Fish")
+        .required(true);
+
+    let env_arg = Arg::with_name("env_name")
+        .value_name("ENV_NAME")
+        .help("虚拟环境名称")
+        .required(true);
+
+    // 初始化App，并返回App实例
+    App::new("workon")
+        .version("0.0.1")
+        .author("im.zhaolei@foxmail.com")
+        .about("workon可以用来激活Python虚拟环境，设置路径和虚拟环境的映射，在使用workon激活虚拟环境是将自动进入配置的项目目录。")
+        .subcommand(
+            SubCommand::with_name("--init")
+                .about("打印用于执行workon的shell函数")
+                .arg(&shell_arg)
+        )
+        .subcommand(
+            SubCommand::with_name("--completions")
+                .about("在标准输出中打印生成的workon补全信息")
+                .arg(
+                    Arg::with_name("shell")
+                        .takes_value(true)
+                        .possible_values(&Shell::variants())
+                        .help("生成补全")
+                        .value_name("SHELL")
+                        .required(true)
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("--set")
+                .about("为当前目录设置虚拟环境，激活环境或进入当前目录自动激活环境")
+                .arg(&env_arg)
+        )
+        .subcommand(
+            SubCommand::with_name("--get")
+                .about("获取虚拟环境配置的路径，如果未配置则未空")
+                .arg(&env_arg)
+        )
+        .subcommand(
+            SubCommand::with_name("--remove")
+                .about("删除指定环境配置，可通过 show 子命令查看已经添加的全部配置信息")
+                .arg(&env_arg)
+        )
+        .subcommand(
+            SubCommand::with_name("--clean")
+                .about("清除所有的配置信息")
+        )
+        .subcommand(
+            SubCommand::with_name("--show")
+                .about("显示所有的配置")
+        )
+        .help_message("打印帮助信息")
+        .version_message("显示版本信息")
+}
+
+fn get_config_file_and_dir() -> (PathBuf, String) {
+    let home_dir = dirs::home_dir().unwrap();
+    let config_dir = home_dir.as_path().join(".config");
+
+    let work_dir = config_dir.join("workon");
+    let work_dir = work_dir.as_path();
+
+    let config_file = work_dir.join("config");
+    let config_file = config_file.to_str().unwrap();
+    return (work_dir.to_owned(), config_file.to_owned());
 }
 
 fn get_config() -> String {
-    let mut file = match File::open(CONFIG_FILE) {
+    let (work_dir, config_file) = get_config_file_and_dir();
+    let config_file = config_file.as_str();
+    let mut file = match File::open(config_file) {
         Ok(f) => f,
         Err(_) => {
-            let c = File::create(CONFIG_FILE);
+            if !work_dir.exists() {
+                let _ = fs::create_dir(work_dir.to_str().unwrap());
+            }
+            let c = File::create(config_file);
             match c {
                 Ok(f) => f,
                 Err(e) => {
                     println!("创建配置文件失败: {}", e);
-                    exit(ErrorCode::CreateFileError as i32);
+                    exit(RETURN_ERROR);
                 }
             }
         }
     };
     let mut content = String::new();
     match file.read_to_string(&mut content) {
-        Err(e) => {
-            println!("读取文件失败: {}", e);
-            exit(ErrorCode::ReadFileError as i32);
-        }
+        Err(_) => {}
         Ok(_) => {}
     }
     if content.is_empty() {
@@ -56,65 +125,69 @@ fn parse_config() -> Value {
         Ok(v) => v,
         Err(e) => {
             println!("解析配置失败: {}", e);
-            exit(ErrorCode::ParseConfigError as i32);
+            exit(RETURN_ERROR);
         }
     }
 }
 
-fn init_app() -> ArgMatches<'static> {
-    // 初始化App，并返回ArgMatches实例
-    let mut app = App::new("workon")
-        .version("0.0.1")
-        .author("zhaolei")
-        .about("workon可以用来激活Python虚拟环境，设置路径和虚拟环境的映射，在使用workon激活虚拟环境是将自动进入配置的项目目录。")
-        .arg(
-            Arg::with_name("set_env_name")
-                .long("set")
-                .short("s")
-                .takes_value(true)
-                .help("为当前目录设置虚拟环境，激活环境或进入当前目录自动激活环境"),
-        )
-        .arg(
-            Arg::with_name("get_env_config")
-                .long("get")
-                .short("g")
-                .takes_value(true)
-                .help("获取虚拟环境配置的路径，如果未配置则未空"),
-        )
-        .arg(
-            Arg::with_name("remove_env_name")
-                .long("remove")
-                .short("r")
-                .takes_value(true)
-                .help("删除指定环境配置，可通过--show查看已经添加的全部配置信息"),
-        )
-        .arg(
-            Arg::with_name("clean_env_name")
-                .long("clean")
-                .help("清除所有的配置信息"),
-        )
-        .arg(Arg::with_name("show")
-            .long("show")
-            .help("显示所有的配置")
-        )
-        .help_message("打印帮助信息")
-        .version_message("显示版本信息");
+fn dispatch(mut app: App) {
+    let matches_safe = app.clone().get_matches_safe();
+    let matches = match matches_safe {
+        Ok(m) => m,
+        Err(e) => {
+            match e.kind {
+                ErrorKind::MissingRequiredArgument => {
+                    println!("必需参数未指定，尝试使用--help获取帮助");
+                }
+                _ => {
+                    println!("{}", e);
+                }
+            }
+            exit(RETURN_ERROR);
+        }
+    };
+    match matches.subcommand() {
+        ("--init", Some(sub_m)) => {
+            let shell_name = sub_m.value_of("shell").expect("指定shell");
+            init::init_main(shell_name);
+        }
+        ("--completions", Some(sub_m)) => {
+            let shell: Shell = sub_m
+                .value_of("shell")
+                .expect("shell名称未指定")
+                .parse()
+                .expect("shell不可用");
 
-    app.gen_completions("workon", Shell::Fish, CONFIG_PATH);
-    app.get_matches()
-}
-
-fn dispatch(matches: ArgMatches) {
-    if let Some(env) = matches.value_of("set_env_name") {
-        set(env);
-    } else if let Some(env) = matches.value_of("get_env_config") {
-        get(env);
-    } else if let Some(env) = matches.value_of("remove_env_name") {
-        remove(env);
-    } else if matches.is_present("clean_env_name") {
-        clean();
-    } else if matches.is_present("show") {
-        show();
+            app.gen_completions_to("workon", shell, &mut io::stdout().lock());
+            match shell {
+                Shell::Fish => {
+                    println!("complete -c workon -x -a '(ls /usr/local/Caskroom/miniconda/base/envs/ | cut -d : -f 1)'")
+                }
+                _ => {}
+            }
+        }
+        ("--set", Some(sub_m)) => {
+            let env_name = sub_m.value_of("env_name").expect("请指定虚拟环境名称");
+            set(env_name);
+        }
+        ("--get", Some(sub_m)) => {
+            let env_name = sub_m.value_of("env_name").expect("请指定虚拟环境名称");
+            get(env_name);
+        }
+        ("--remove", Some(sub_m)) => {
+            let env_name = sub_m.value_of("env_name").expect("请指定虚拟环境名称");
+            remove(env_name);
+        }
+        ("--clean", Some(_)) => {
+            clean();
+        }
+        ("--show", Some(_)) => {
+            show();
+        }
+        (_command, _) => {
+            // unreachable!("Invalid subcommand: {}", command)
+            let _ = app.print_help();
+        }
     }
 }
 
@@ -129,12 +202,13 @@ fn set(env: &str) {
         }
         Err(e) => {
             println!("无法为当前目录设置虚拟环境({}): {}", env, e);
-            exit(ErrorCode::SetConfigError as i32);
+            exit(RETURN_ERROR);
         }
     }
 
     let json_string = serde_json::to_string_pretty(&config).expect("期望接收一个JSON类型的数据");
-    match File::create(CONFIG_FILE) {
+    let (_, config_file) = get_config_file_and_dir();
+    match File::create(config_file) {
         Ok(mut f) => {
             let _ = f.write(json_string.as_bytes());
         }
@@ -147,8 +221,6 @@ fn get(env: &str) {
     let config = parse_config();
     if let Some(s) = config.get(env) {
         println!("{}", s.as_str().unwrap());
-    } else {
-        exit(ErrorCode::NotFoundFileError as i32);
     }
 }
 
@@ -160,7 +232,8 @@ fn remove(env: &str) {
     }
     config.as_object_mut().unwrap().remove(env);
     let json_string = serde_json::to_string_pretty(&config).expect("期望接收一个JSON类型的数据");
-    match File::create(CONFIG_FILE) {
+    let (_, config_file) = get_config_file_and_dir();
+    match File::create(config_file) {
         Ok(mut f) => {
             let _ = f.write(json_string.as_bytes());
         }
@@ -170,8 +243,10 @@ fn remove(env: &str) {
 }
 
 fn clean() {
-    if Path::new(CONFIG_FILE).exists() {
-        match File::create(CONFIG_FILE) {
+    let (_, config_file) = get_config_file_and_dir();
+    let config_file = config_file.as_str();
+    if Path::new(config_file).exists() {
+        match File::create(config_file) {
             Ok(mut f) => {
                 let _ = f.write("{}".as_bytes());
             }
@@ -186,12 +261,8 @@ fn clean() {
 
 fn show() {
     let config = parse_config();
+    println!("配置:");
     for (key, value) in config.as_object().unwrap().iter() {
-        println!("{}:\t{}\n", key, value.as_str().unwrap());
+        println!("\t{}:\t{}", key, value.as_str().unwrap());
     }
-}
-
-fn main() {
-    let matches = init_app();
-    dispatch(matches);
 }
