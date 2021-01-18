@@ -220,7 +220,12 @@ fn set(env: &str) {
 fn get(env: &str) {
     let config = parse_config();
     if let Some(s) = config.get(env) {
-        println!("{}", s.as_str().unwrap());
+        if let Ok(current_dir) = env::current_dir() {
+            let config_dir = s.as_str().unwrap();
+            if config_dir != current_dir.to_str().unwrap() {
+                println!("{}", s.as_str().unwrap());
+            }
+        }
     }
 }
 

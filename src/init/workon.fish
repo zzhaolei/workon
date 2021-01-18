@@ -1,6 +1,5 @@
 function workon
     set -l WORKON_TOOL ::WORKON::
-    set -l TOOL_RESULT
     # 判断第一个参数是否是参数
     switch $argv[1]
         case '-*'
@@ -11,9 +10,10 @@ function workon
                 $WORKON_TOOL --help
                 return
             end
-            set TOOL_RESULT ($WORKON_TOOL --get $argv[1])
-            if test $status -eq 0
-                conda activate $argv[1]
+            set -l TOOL_RESULT ($WORKON_TOOL --get $argv[1])
+            set -l exit_code $status
+            conda activate $argv[1]
+            if test $exit_code -eq 0
                 if test -z $TOOL_RESULT
                     return
                 end
