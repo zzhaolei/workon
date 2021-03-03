@@ -22,6 +22,6 @@ function workon
     end
 end
 
-function deactivate
-    conda deactivate
+if set -q CONDA_EXE
+    abbr deactivate "conda deactivate"
 end

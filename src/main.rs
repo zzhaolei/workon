@@ -161,7 +161,9 @@ fn dispatch(mut app: App) {
             app.gen_completions_to("workon", shell, &mut io::stdout().lock());
             match shell {
                 Shell::Fish => {
-                    println!("complete -c workon -x -a '(ls /usr/local/Caskroom/miniconda/base/envs/ | cut -d : -f 1)'")
+                    // 当conda被shell加载时，CONDA_EXE是miniconda目录/bin/conda的完整路径
+                    // 未被加载则此路径无数据
+                    println!("complete -c workon -x -a \"(ls $CONDA_EXE/envs/ | cut -d : -f 1)\"")
                 }
                 _ => {}
             }
