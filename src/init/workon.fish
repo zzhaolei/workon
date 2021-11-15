@@ -1,5 +1,6 @@
 function workon
     set -l WORKON_TOOL ::WORKON::
+    set -l envs_dirs $HOME/.virtualenvs
     # 判断第一个参数是否是参数
     switch $argv[1]
         case '-*'
@@ -12,7 +13,7 @@ function workon
             end
             set -l TOOL_RESULT ($WORKON_TOOL --get $argv[1])
             set -l exit_code $status
-            conda activate $argv[1]
+            source $envs_dirs/$argv[1]/bin/activate.fish
             if test $exit_code -eq 0
                 if test -z $TOOL_RESULT
                     return
@@ -20,8 +21,4 @@ function workon
                 cd $TOOL_RESULT
             end
     end
-end
-
-if set -q CONDA_EXE
-    abbr deactivate "conda deactivate"
 end

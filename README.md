@@ -1,5 +1,5 @@
 # workon
-> workon 是一个用 Rust 实现的，管理通过 conda 创建的 Python 虚拟环境的工具。
+> workon 是一个用 Rust 实现的，用于`切换Python虚拟环境`与`自动进入项目`的工具。
 
 ## 安装方式
 
@@ -11,7 +11,7 @@ git clone https://github.com/zzhaolei/workon.git
 # 进入项目
 cd workon
 
-# 安装 workon-core 
+# 安装 workon-core
 cargo install --path .
 ```
 
