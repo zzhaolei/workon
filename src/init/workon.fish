@@ -1,6 +1,6 @@
 function workon
     set -l WORKON_TOOL ::WORKON::
-    set -l envs_dirs $HOME/.virtualenvs
+    set -l __workon_envs_dirs $HOME/.virtualenvs
 
     switch $argv[1]
         # If the first argument contains '-'', it is the option
@@ -15,7 +15,7 @@ function workon
             set -l TOOL_RESULT ($WORKON_TOOL --get $argv[1])
             set -l result_ok $status
 
-            set -l venv_activate $envs_dirs/$argv[1]/bin/activate.fish 2>/dev/null
+            set -l venv_activate $__workon_envs_dirs/$argv[1]/bin/activate.fish
             if test -f $venv_activate
                 source $venv_activate 2>/dev/null
                 if test $result_ok -eq 0
