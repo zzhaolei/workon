@@ -86,7 +86,7 @@ fn get_config_file_and_dir() -> (PathBuf, String) {
 
     let config_file = work_dir.join("config");
     let config_file = config_file.to_str().unwrap();
-    return (work_dir.to_owned(), config_file.to_owned());
+    (work_dir.to_owned(), config_file.to_owned())
 }
 
 fn get_config() -> String {
@@ -109,9 +109,9 @@ fn get_config() -> String {
         }
     };
     let mut content = String::new();
-    match file.read_to_string(&mut content) {
-        Err(_) => {}
-        Ok(_) => {}
+    if let Err(e) = file.read_to_string(&mut content) {
+        println!("读取文件异常: {}", e);
+        exit(RETURN_ERROR);
     }
     if content.is_empty() {
         content = "{}".to_owned();
@@ -265,7 +265,9 @@ fn clean() {
 fn show() {
     let config = parse_config();
     println!("配置:");
+    println!("{{");
     for (key, value) in config.as_object().unwrap().iter() {
-        println!("\t{}:\t{}", key, value.as_str().unwrap());
+        println!("    \"{}\": \"{}\",", key, value.as_str().unwrap());
     }
+    println!("}}");
 }
