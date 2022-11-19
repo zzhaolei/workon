@@ -159,9 +159,13 @@ fn dispatch(mut app: App) {
                 .expect("shell不可用");
 
             app.gen_completions_to("workon", shell, &mut io::stdout().lock());
-            if let Shell::Fish = shell {
-                let complete = r#"complete -c workon -x -a "(ls -D $HOME/{.virtualenvs, Library/Caches/pypoetry/virtualenvs}/ 2> /dev/null | grep -v ':')""#;
-                println!("{}", complete);
+            match shell {
+                Shell::Fish => {
+                    let complete = r#"complete -c workon -x -a "(ls -D $HOME/{.virtualenvs,Library/Caches/pypoetry/virtualenvs}/ 2> /dev/null | grep -v ':')""#;
+                    println!("{}", complete);
+                }
+                Shell::Zsh => {}
+                _ => {}
             }
         }
         ("--set", Some(sub_m)) => {

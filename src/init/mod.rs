@@ -1,6 +1,7 @@
 use std::env;
 
 const FISH_INIT: &str = include_str!("workon.fish");
+const ZSH_INIT: &str = include_str!("workon.zsh");
 
 fn get_workon_path() -> String {
     let path = env::current_exe().unwrap();
@@ -12,6 +13,7 @@ pub fn init_main(shell_name: &str) {
 
     match shell_name {
         "fish" => print_script(FISH_INIT, workon_path.as_str()),
+        "zsh" => print_script(ZSH_INIT, workon_path.as_str()),
         _ => {
             println!(
                 "printf \"Shell name detection failed on phase two init.\\n\
